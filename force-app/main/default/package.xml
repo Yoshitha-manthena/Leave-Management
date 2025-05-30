@@ -16,7 +16,7 @@
         <name>LightningComponentBundle</name>
     </types>
     <types>
-        <members>AutoApproveLeaveRequest</members>
+        <members>Auto_Approval_Flow</members>
         <name>Flow</name>
     </types>
     <version>61.0</version>

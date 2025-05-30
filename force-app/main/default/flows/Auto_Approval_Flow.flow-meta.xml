@@ -1,0 +1,129 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Flow xmlns="http://soap.sforce.com/2006/04/metadata">
+    <apiVersion>63.0</apiVersion>
+    <decisions>
+        <name>Decision_Element</name>
+        <label>Decision Element</label>
+        <locationX>182</locationX>
+        <locationY>431</locationY>
+        <defaultConnectorLabel>Insufficient Leaves</defaultConnectorLabel>
+        <rules>
+            <name>Sufficient_Leaves</name>
+            <conditionLogic>and</conditionLogic>
+            <conditions>
+                <leftValueReference>$Record.myApp202224__Leave_Balance__r.myApp202224__Pending_Leaves__c</leftValueReference>
+                <operator>GreaterThanOrEqualTo</operator>
+                <rightValue>
+                    <elementReference>Leave_Days</elementReference>
+                </rightValue>
+            </conditions>
+            <connector>
+                <targetReference>Updating_Status</targetReference>
+            </connector>
+            <label>Sufficient Leaves</label>
+        </rules>
+    </decisions>
+    <environments>Default</environments>
+    <formulas>
+        <name>Leave_Days</name>
+        <dataType>Number</dataType>
+        <expression>{!$Record.myApp202224__End_Date__c}- {!$Record.myApp202224__Start_Date__c}+1</expression>
+        <scale>2</scale>
+    </formulas>
+    <formulas>
+        <name>PendingLeaves</name>
+        <dataType>Number</dataType>
+        <expression>{!$Record.myApp202224__Leave_Balance__r.myApp202224__Pending_Leaves__c} -{!Leave_Days}</expression>
+        <scale>2</scale>
+    </formulas>
+    <interviewLabel>Auto Approval Flow {!$Flow.CurrentDateTime}</interviewLabel>
+    <label>Auto Approval Flow</label>
+    <processMetadataValues>
+        <name>BuilderType</name>
+        <value>
+            <stringValue>LightningFlowBuilder</stringValue>
+        </value>
+    </processMetadataValues>
+    <processMetadataValues>
+        <name>CanvasMode</name>
+        <value>
+            <stringValue>AUTO_LAYOUT_CANVAS</stringValue>
+        </value>
+    </processMetadataValues>
+    <processMetadataValues>
+        <name>OriginBuilderType</name>
+        <value>
+            <stringValue>LightningFlowBuilder</stringValue>
+        </value>
+    </processMetadataValues>
+    <processType>AutoLaunchedFlow</processType>
+    <recordLookups>
+        <name>Get_Leave_Balance_Records</name>
+        <label>Get Leave Balance Records</label>
+        <locationX>182</locationX>
+        <locationY>323</locationY>
+        <assignNullValuesIfNoRecordsFound>false</assignNullValuesIfNoRecordsFound>
+        <connector>
+            <targetReference>Decision_Element</targetReference>
+        </connector>
+        <filterLogic>and</filterLogic>
+        <filters>
+            <field>Employee__c</field>
+            <operator>EqualTo</operator>
+            <value>
+                <elementReference>$Record.Employee__c</elementReference>
+            </value>
+        </filters>
+        <filters>
+            <field>Year__c</field>
+            <operator>EqualTo</operator>
+            <value>
+                <stringValue>TEXT(YEAR(Today()))</stringValue>
+            </value>
+        </filters>
+        <getFirstRecordOnly>false</getFirstRecordOnly>
+        <object>Leave_Balance__c</object>
+        <queriedFields>Id</queriedFields>
+        <storeOutputAutomatically>true</storeOutputAutomatically>
+    </recordLookups>
+    <recordUpdates>
+        <name>Update_Records_2</name>
+        <label>Update Records 2</label>
+        <locationX>50</locationX>
+        <locationY>647</locationY>
+        <inputAssignments>
+            <field>Pending_Leaves__c</field>
+            <value>
+                <elementReference>PendingLeaves</elementReference>
+            </value>
+        </inputAssignments>
+        <inputReference>$Record.Leave_Balance__r</inputReference>
+    </recordUpdates>
+    <recordUpdates>
+        <name>Updating_Status</name>
+        <label>Updating Status</label>
+        <locationX>50</locationX>
+        <locationY>539</locationY>
+        <connector>
+            <targetReference>Update_Records_2</targetReference>
+        </connector>
+        <inputAssignments>
+            <field>Status__c</field>
+            <value>
+                <stringValue>Approved</stringValue>
+            </value>
+        </inputAssignments>
+        <inputReference>$Record</inputReference>
+    </recordUpdates>
+    <start>
+        <locationX>56</locationX>
+        <locationY>0</locationY>
+        <connector>
+            <targetReference>Get_Leave_Balance_Records</targetReference>
+        </connector>
+        <object>Leave_Request__c</object>
+        <recordTriggerType>Create</recordTriggerType>
+        <triggerType>RecordAfterSave</triggerType>
+    </start>
+    <status>Draft</status>
+</Flow>
