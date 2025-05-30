@@ -55,6 +55,7 @@ export default class LeaveDashboard extends LightningElement {
             this.leaveStatusData = await getLeaveStatus();
             this.leaveHistoryData = await getLeaveHistory();
         } catch (error) {
+            console.error('Load leave data error:' , error);
             this.showToast('Error', 'Failed to load leave data: ' + error.body.message, 'error');
             this.pendingLeaves = 0;
             this.totalLeaves = 0;
