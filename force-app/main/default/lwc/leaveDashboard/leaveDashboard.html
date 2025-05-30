@@ -1,0 +1,74 @@
+<template>
+    <lightning-card title="Leave Dashboard" icon-name="standard:contact">
+        <div class="apple-container">
+            <lightning-tabset>
+                <!-- Leave Request Tab -->
+                <lightning-tab label="Leave Request" value="request">
+                    <div class="apple-form">
+                        <lightning-combobox
+                            name="leaveType"
+                            label="Leave Type"
+                            value={leaveType}
+                            options={leaveTypeOptions}
+                            onchange={handleInputChange}
+                            required
+                        ></lightning-combobox>
+                        <lightning-input
+                            type="date"
+                            name="startDate"
+                            label="Start Date"
+                            value={startDate}
+                            min={today}
+                            onchange={handleInputChange}
+                            required
+                        ></lightning-input>
+                        <lightning-input
+                            type="date"
+                            name="endDate"
+                            label="End Date"
+                            value={endDate}
+                            min={today}
+                            onchange={handleInputChange}
+                            required
+                        ></lightning-input>
+                        <lightning-textarea
+                            name="reason"
+                            label="Reason"
+                            value={reason}
+                            onchange={handleInputChange}
+                            required={reasonRequired}
+                        ></lightning-textarea>
+                        <lightning-button
+                            label="Submit Request"
+                            variant="brand"
+                            onclick={handleSubmit}
+                            class="apple-button"
+                        ></lightning-button>
+                    </div>
+                </lightning-tab>
+                <!-- Leave Status Tab -->
+                <lightning-tab label="Leave Status" value="status">
+                    <lightning-datatable
+                        key-field="Id"
+                        data={leaveStatusData}
+                        columns={leaveStatusColumns}
+                        hide-checkbox-column
+                    ></lightning-datatable>
+                </lightning-tab>
+                <!-- Leave History Tab -->
+                <lightning-tab label="Leave History" value="history">
+                    <div class="apple-balance">
+                        <p><b>Monthly Pending Leaves:</b> {pendingLeaves}</p>
+                        <p><b>Total Allocated Leaves:</b> {totalLeaves}</p>
+                    </div>
+                    <lightning-datatable
+                        key-field="Id"
+                        data={leaveHistoryData}
+                        columns={leaveHistoryColumns}
+                        hide-checkbox-column
+                    ></lightning-datatable>
+                </lightning-tab>
+            </lightning-tabset>
+        </div>
+    </lightning-card>
+</template>

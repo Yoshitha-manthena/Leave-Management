@@ -1,0 +1,13 @@
+<template>
+    <lightning-card title="Manager Dashboard" icon-name="standard:task">
+        <div class="apple-container">
+            <lightning-datatable
+                key-field="Id"
+                data={leaveRequests}
+                columns={columns}
+                onrowaction={handleRowAction}
+                hide-checkbox-column
+            ></lightning-datatable>
+        </div>
+    </lightning-card>
+</template>

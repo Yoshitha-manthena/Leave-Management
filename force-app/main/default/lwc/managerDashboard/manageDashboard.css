@@ -1,0 +1,19 @@
+:host {
+    --apple-bg: #f5f5f7;
+    --apple-text: #1d1d1f;
+    --apple-accent: #0071e3;
+    --apple-border: #d2d2d7;
+}
+
+.apple-container {
+    background-color: var(--apple-bg);
+    padding: 20px;
+    border-radius: 18px;
+    font-family: 'SF Pro Display', -apple-system, BlinkMacSystemFont, sans-serif;
+    color: var(--apple-text);
+}
+
+lightning-datatable {
+    border: 1px solid var(--apple-border);
+    border-radius: 8px;
+}   
