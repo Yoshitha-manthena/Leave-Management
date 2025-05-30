@@ -62,7 +62,7 @@ public with sharing class LeaveController {
     @AuraEnabled(cacheable=true)
     public static List<Leave_Request__c> getLeaveHistory() {
         String userId = UserInfo.getUserId();
-        return [SELECT Name, Start_Date__c, End_Date__c, Reason__c, Status__c, Approved_By__r.Name
+        return [SELECT Name, Start_Date__c, End_Date__c, Reason__c, Status__c, Approved_By__c
                 FROM Leave_Request__c
                 WHERE Employee__c = :userId];
     }
