@@ -45,17 +45,25 @@ export default class LeaveDashboard extends LightningElement {
 
     async loadLeaveData() {
         try {
+            console.log('Loading leave balance...');
             let balance = await getLeaveBalance();
             if (!balance) {
-                // Create a default balance if none exists
+                console.log('No leave balance found, creating default...');
                 balance = await createDefaultLeaveBalance();
             }
+            console.log('Leave balance loaded:', balance);
             this.pendingLeaves = balance.Pending_Leaves__c || 0;
             this.totalLeaves = balance.Total_Allocated_Leaves__c || 0;
+
+            console.log('Loading leave status...');
             this.leaveStatusData = await getLeaveStatus();
+            console.log('Leave status loaded:', this.leaveStatusData);
+
+            console.log('Loading leave history...');
             this.leaveHistoryData = await getLeaveHistory();
+            console.log('Leave history loaded:', this.leaveHistoryData);
         } catch (error) {
-            console.error('Load leave data error:' , error);
+            console.error('Load leave data error:', error);
             this.showToast('Error', 'Failed to load leave data: ' + error.body.message, 'error');
             this.pendingLeaves = 0;
             this.totalLeaves = 0;
@@ -84,6 +92,7 @@ export default class LeaveDashboard extends LightningElement {
 
         try {
             const userId = await getCurrentUserId();
+            console.log('Submitting leave request:', { leaveType: this.leaveType, startDate: this.startDate, endDate: this.endDate, reason: this.reason, employeeId: userId });
             await createLeaveRequest({
                 leaveType: this.leaveType,
                 startDate: this.startDate,
@@ -93,9 +102,10 @@ export default class LeaveDashboard extends LightningElement {
             });
             this.showToast('Success', 'Leave request submitted successfully.', 'success');
             this.resetForm();
-            this.loadLeaveData();
+            await this.loadLeaveData();
         } catch (error) {
-            this.showToast('Error', error.body.message, 'error');
+            console.error('Submission error:', error);
+            this.showToast('Error', 'Failed to submit leave request: ' + error.body.message, 'error');
         }
     }
 
