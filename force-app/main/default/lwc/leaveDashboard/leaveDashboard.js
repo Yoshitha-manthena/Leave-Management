@@ -51,20 +51,20 @@ export default class LeaveDashboard extends LightningElement {
                 console.log('No leave balance found, creating default...');
                 balance = await createDefaultLeaveBalance();
             }
-            console.log('Leave balance loaded:', balance);
+            console.log('Leave balance loaded:', JSON.stringify(balance));
             this.pendingLeaves = balance.Pending_Leaves__c || 0;
             this.totalLeaves = balance.Total_Allocated_Leaves__c || 0;
 
             console.log('Loading leave status...');
             this.leaveStatusData = await getLeaveStatus();
-            console.log('Leave status loaded:', this.leaveStatusData);
+            console.log('Leave status loaded:', JSON.stringify(this.leaveStatusData));
 
             console.log('Loading leave history...');
             this.leaveHistoryData = await getLeaveHistory();
-            console.log('Leave history loaded:', this.leaveHistoryData);
+            console.log('Leave history loaded:', JSON.stringify(this.leaveHistoryData));
         } catch (error) {
-            console.error('Load leave data error:', error);
-            this.showToast('Error', 'Failed to load leave data: ' + error.body.message, 'error');
+            console.error('Load leave data error:', JSON.stringify(error, null, 2));
+            this.showToast('Error', `Failed to load leave data: ${error.body?.message || error.message}`, 'error');
             this.pendingLeaves = 0;
             this.totalLeaves = 0;
         }
@@ -91,8 +91,14 @@ export default class LeaveDashboard extends LightningElement {
         }
 
         try {
+            console.log('Input data:', {
+                leaveType: this.leaveType,
+                startDate: this.startDate,
+                endDate: this.endDate,
+                reason: this.reason
+            });
             const userId = await getCurrentUserId();
-            console.log('Submitting leave request:', { leaveType: this.leaveType, startDate: this.startDate, endDate: this.endDate, reason: this.reason, employeeId: userId });
+            console.log('User ID:', userId);
             await createLeaveRequest({
                 leaveType: this.leaveType,
                 startDate: this.startDate,
@@ -100,12 +106,14 @@ export default class LeaveDashboard extends LightningElement {
                 reason: this.reason,
                 employeeId: userId
             });
+            console.log('Leave request submitted successfully');
             this.showToast('Success', 'Leave request submitted successfully.', 'success');
             this.resetForm();
             await this.loadLeaveData();
         } catch (error) {
-            console.error('Submission error:', error);
-            this.showToast('Error', 'Failed to submit leave request: ' + error.body.message, 'error');
+            console.error('Submission error:', JSON.stringify(error, null, 2));
+            const errorMessage = error.body?.message || error.message || 'Unknown error occurred';
+            this.showToast('Error', `Failed to submit leave request: ${errorMessage}`, 'error');
         }
     }
 
