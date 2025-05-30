@@ -4,6 +4,7 @@ import createLeaveRequest from '@salesforce/apex/LeaveController.createLeaveRequ
 import getLeaveStatus from '@salesforce/apex/LeaveController.getLeaveStatus';
 import getLeaveHistory from '@salesforce/apex/LeaveController.getLeaveHistory';
 import getLeaveBalance from '@salesforce/apex/LeaveController.getLeaveBalance';
+import createDefaultLeaveBalance from '@salesforce/apex/LeaveController.createDefaultLeaveBalance';
 import getCurrentUserId from '@salesforce/apex/LeaveController.getCurrentUserId';
 
 export default class LeaveDashboard extends LightningElement {
@@ -14,8 +15,8 @@ export default class LeaveDashboard extends LightningElement {
     @track reasonRequired = false;
     @track leaveStatusData = [];
     @track leaveHistoryData = [];
-    @track pendingLeaves = 2;
-    @track totalLeaves = 24;
+    @track pendingLeaves = 0;
+    @track totalLeaves = 0;
     @track today = new Date().toISOString().split('T')[0];
 
     leaveTypeOptions = [
@@ -44,13 +45,19 @@ export default class LeaveDashboard extends LightningElement {
 
     async loadLeaveData() {
         try {
-            const balance = await getLeaveBalance();
+            let balance = await getLeaveBalance();
+            if (!balance) {
+                // Create a default balance if none exists
+                balance = await createDefaultLeaveBalance();
+            }
             this.pendingLeaves = balance.Pending_Leaves__c || 0;
             this.totalLeaves = balance.Total_Allocated_Leaves__c || 0;
             this.leaveStatusData = await getLeaveStatus();
             this.leaveHistoryData = await getLeaveHistory();
         } catch (error) {
-            this.showToast('Error', error.body.message, 'error');
+            this.showToast('Error', 'Failed to load leave data: ' + error.body.message, 'error');
+            this.pendingLeaves = 0;
+            this.totalLeaves = 0;
         }
     }
 
@@ -61,7 +68,6 @@ export default class LeaveDashboard extends LightningElement {
         if (field === 'endDate') this.endDate = event.target.value;
         if (field === 'reason') this.reason = event.target.value;
 
-        // Check if reason is required (no leaves remaining)
         if (this.pendingLeaves === 0) {
             this.reasonRequired = true;
         } else {

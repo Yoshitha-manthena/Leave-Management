@@ -1,12 +1,4 @@
 public with sharing class LeaveController {
-    @AuraEnabled(cacheable=true)
-    public static Leave_Balance__c getLeaveBalance() {
-        String userId = UserInfo.getUserId();
-        return [SELECT Pending_Leaves__c, Total_Allocated_Leaves__c
-                FROM Leave_Balance__c
-                WHERE Employee__c = :userId AND Year__c = :String.valueOf(Date.today().year())
-                LIMIT 1];
-    }
 
     @AuraEnabled(cacheable=true)
     public static List<Leave_Request__c> getLeaveStatus() {
@@ -60,5 +52,46 @@ public with sharing class LeaveController {
     @AuraEnabled(cacheable=true)
     public static String getCurrentUserId() {
         return UserInfo.getUserId();
+    }
+    @AuraEnabled(cacheable=true)
+    public static Leave_Balance__c getLeaveBalance() {
+        String userId = UserInfo.getUserId();
+        String currentYear = String.valueOf(Date.today().year());
+        
+        List<Leave_Balance__c> leaveBalances = [SELECT Id, Pending_Leaves__c, Total_Allocated_Leaves__c
+                                                FROM Leave_Balance__c
+                                                WHERE Employee__c = :userId AND Year__c = :currentYear
+                                                LIMIT 1];
+        
+        if (!leaveBalances.isEmpty()) {
+            return leaveBalances[0];
+        } else {
+            // Return null or throw an exception to handle in LWC
+            return null;
+        }
+    }
+    
+    @AuraEnabled
+    public static Leave_Balance__c createDefaultLeaveBalance() {
+        String userId = UserInfo.getUserId();
+        String currentYear = String.valueOf(Date.today().year());
+        
+        // Check if record already exists to avoid duplicates
+        List<Leave_Balance__c> existingBalances = [SELECT Id FROM Leave_Balance__c
+                                                  WHERE Employee__c = :userId AND Year__c = :currentYear
+                                                  LIMIT 1];
+        if (!existingBalances.isEmpty()) {
+            return existingBalances[0];
+        }
+
+        // Create new record
+        Leave_Balance__c newBalance = new Leave_Balance__c(
+            Employee__c = userId,
+            Year__c = currentYear,
+            Pending_Leaves__c = 24,
+            Total_Allocated_Leaves__c = 24
+        );
+        insert newBalance;
+        return newBalance;
     }
 }
