@@ -14,4 +14,18 @@
         </criteriaItems>
         <includeRecordsOwnedByAll>true</includeRecordsOwnedByAll>
     </sharingCriteriaRules>
+    <sharingCriteriaRules>
+        <fullName>Manger_Access_to_All_Leave_Requests</fullName>
+        <accessLevel>Edit</accessLevel>
+        <label>Manger Access to All Leave Requests</label>
+        <sharedTo>
+            <role>Manager</role>
+        </sharedTo>
+        <criteriaItems>
+            <field>Name</field>
+            <operation>notEqual</operation>
+            <value>Null</value>
+        </criteriaItems>
+        <includeRecordsOwnedByAll>true</includeRecordsOwnedByAll>
+    </sharingCriteriaRules>
 </SharingRules>

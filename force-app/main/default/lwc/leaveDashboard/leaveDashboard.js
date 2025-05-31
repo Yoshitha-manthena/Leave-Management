@@ -14,8 +14,8 @@ export default class LeaveDashboard extends LightningElement {
     @track reason = '';
     @track leaveStatusData = [];
     @track leaveHistoryData = [];
-    @track pendingLeaves = 0;
-    @track totalLeaves = 0;
+    @track pendingLeaves = 2;
+    @track totalLeaves = 24;
     @track today = new Date().toISOString().split('T')[0];
 
     leaveTypeOptions = [

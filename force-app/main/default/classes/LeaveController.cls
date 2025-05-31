@@ -1,12 +1,12 @@
 public with sharing class LeaveController {
     @AuraEnabled(cacheable=true)
-    public static Leave_Balance__c getLeaveBalance() {
+    public static myApp202224__Leave_Balance__c getLeaveBalance() {
         try {
             String userId = UserInfo.getUserId();
             String currentYear = String.valueOf(Date.today().year());
-            List<Leave_Balance__c> leaveBalances = [SELECT Id, Pending_Leaves__c, Total_Allocated_Leaves__c
-                                                    FROM Leave_Balance__c
-                                                    WHERE Employee__c = :userId AND Year__c = :currentYear
+            List<myApp202224__Leave_Balance__c> leaveBalances = [SELECT Id, myApp202224__Pending_Leaves__c, myApp202224__Total_Allocated_Leaves__c
+                                                    FROM myApp202224__Leave_Balance__c
+                                                    WHERE myApp202224__Employee__c = :userId AND myApp202224__Year__c = :currentYear
                                                     LIMIT 1];
             return leaveBalances.isEmpty() ? null : leaveBalances[0];
         } catch (Exception e) {
@@ -15,22 +15,22 @@ public with sharing class LeaveController {
     }
 
     @AuraEnabled
-    public static Leave_Balance__c createDefaultLeaveBalance() {
+    public static myApp202224__Leave_Balance__c createDefaultLeaveBalance() {
         try {
             String userId = UserInfo.getUserId();
             String currentYear = String.valueOf(Date.today().year());
-            List<Leave_Balance__c> existingBalances = [SELECT Id, Pending_Leaves__c, Total_Allocated_Leaves__c
-                                                      FROM Leave_Balance__c
-                                                      WHERE Employee__c = :userId AND Year__c = :currentYear
+            List<myApp202224__Leave_Balance__c> existingBalances = [SELECT Id, myApp202224__Pending_Leaves__c, myApp202224__Total_Allocated_Leaves__c
+                                                      FROM myApp202224__Leave_Balance__c
+                                                      WHERE myApp202224__Employee__c = :userId AND myApp202224__Year__c = :currentYear
                                                       LIMIT 1];
             if (!existingBalances.isEmpty()) {
                 return existingBalances[0];
             }
-            Leave_Balance__c newBalance = new Leave_Balance__c(
-                Employee__c = userId,
-                Year__c = currentYear,
-                Pending_Leaves__c = 24,
-                Total_Allocated_Leaves__c = 24
+            myApp202224__Leave_Balance__c newBalance = new myApp202224__Leave_Balance__c(
+                myApp202224__Employee__c = userId,
+                myApp202224__Year__c = currentYear,
+                myApp202224__Pending_Leaves__c = 2,
+                myApp202224__Total_Allocated_Leaves__c = 24
             );
             insert newBalance;
             return newBalance;
@@ -125,12 +125,12 @@ public with sharing class LeaveController {
     }
 
     @AuraEnabled(cacheable=true)
-    public static List<Leave_Request__c> getLeaveStatus() {
+    public static List<myApp202224__Leave_Request__c> getLeaveStatus() {
         try {
             String userId = UserInfo.getUserId();
-            return [SELECT Id, Name, Status__c, Leave_Type__c, Start_Date__c, End_Date__c, Reason__c
-                    FROM Leave_Request__c
-                    WHERE Employee__c = :userId AND Status__c IN ('Pending', 'Auto-Approved')
+            return [SELECT Id, Name, myApp202224__Status__c, myApp202224__Leave_Type__c, myApp202224__Start_Date__c, myApp202224__End_Date__c, myApp202224__Reason__c
+                    FROM myApp202224__Leave_Request__c
+                    WHERE myApp202224__Employee__c = :userId AND myApp202224__Status__c IN ('Pending', 'Auto-Approved')
                     ORDER BY CreatedDate DESC];
         } catch (Exception e) {
             throw new AuraHandledException('Error fetching leave status: ' + e.getMessage());
@@ -138,12 +138,12 @@ public with sharing class LeaveController {
     }
 
     @AuraEnabled(cacheable=true)
-    public static List<Leave_Request__c> getLeaveHistory() {
+    public static List<myApp202224__Leave_Request__c> getLeaveHistory() {
         try {
             String userId = UserInfo.getUserId();
-            return [SELECT Id, Name, Start_Date__c, End_Date__c, Reason__c, Status__c, Approved_By__c, Leave_Type__c
-                    FROM Leave_Request__c
-                    WHERE Employee__c = :userId
+            return [SELECT Id, Name, myApp202224__Start_Date__c, myApp202224__End_Date__c, myApp202224__Reason__c, myApp202224__Status__c, myApp202224__Approved_By__c, Leave_Type__c
+                    FROM myApp202224__Leave_Request__c
+                    WHERE myApp202224__Employee__c = :userId
                     ORDER BY CreatedDate DESC];
         } catch (Exception e) {
             throw new AuraHandledException('Error fetching leave history: ' + e.getMessage());
@@ -158,21 +158,40 @@ public with sharing class LeaveController {
             throw new AuraHandledException('Error fetching current user ID: ' + e.getMessage());
         }
     }
-    @AuraEnabled(cacheable=true)
-    public static List<Leave_Request__c> getPendingLeaveRequests() {
+   @AuraEnabled(cacheable=true)
+    public static List<myApp202224__Leave_Request__c> getPendingLeaveRequests() {
         try {
             String managerId = UserInfo.getUserId();
-            List<User> subordinates = [SELECT Id FROM User WHERE ManagerId = :managerId];
+            System.debug('Manager ID: ' + managerId + ', Name: ' + UserInfo.getName());
+            List<User> subordinates = [SELECT Id, Name, Email FROM User WHERE ManagerId = :managerId];
+            System.debug('Subordinates: ' + subordinates);
             Set<Id> subordinateIds = new Set<Id>();
             for (User u : subordinates) {
                 subordinateIds.add(u.Id);
             }
-            return [SELECT Id, Name, Leave_Type__c, Start_Date__c, End_Date__c, Reason__c, 
-            Employee__c, Status__c 
-                    FROM Leave_Request__c 
-                    WHERE Employee__c IN :subordinateIds AND Status__c = 'LeaveRequest'
-                    ORDER BY Start_Date__c];
+            System.debug('Subordinate IDs: ' + subordinateIds);
+            if (subordinateIds.isEmpty()) {
+                System.debug('No subordinates found for manager ID: ' + managerId);
+                return new List<Leave_Request__c>();
+            }
+            List<myApp202224__Leave_Request__c> pendingRequests = [SELECT Id, Name, myApp202224__Leave_Type__c, myApp202224__Start_Date__c, myApp202224__End_Date__c, 
+                                                            myApp202224__Reason__c, myApp202224__Employee__r.Name, myApp202224__Employee__c, myApp202224__Status__c 
+                                                     FROM myApp202224__Leave_Request__c 
+                                                     WHERE myApp202224__Employee__c IN :subordinateIds AND myApp202224__Status__c = 'Pending'
+                                                     ORDER BY Start_Date__c];
+            System.debug('Pending Requests: ' + pendingRequests);
+            if (pendingRequests.isEmpty()) {
+                System.debug('No pending requests found for subordinates: ' + subordinateIds);
+                List<myApp202224__Leave_Request__c> allRequests = [SELECT Id, Name, myApp202224__Leave_Type__c, myApp202224__Start_Date__c, myApp202224__End_Date__c, 
+                                                            myApp202224__Status__c, Employee__c, myApp202224__Employee__r.Name 
+                                                     FROM myApp202224__Leave_Request__c 
+                                                     WHERE myApp202224__Employee__c IN :subordinateIds
+                                                     ORDER BY CreatedDate DESC];
+                System.debug('All requests for subordinates: ' + allRequests);
+            }
+            return pendingRequests;
         } catch (Exception e) {
+            System.debug(LoggingLevel.ERROR, 'Error fetching pending leave requests: ' + e.getMessage() + ' at line ' + e.getLineNumber());
             throw new AuraHandledException('Error fetching pending leave requests: ' + e.getMessage());
         }
     }
@@ -180,7 +199,6 @@ public with sharing class LeaveController {
     @AuraEnabled
     public static void updateLeaveRequest(String leaveRequestId, String newStatus) {
         try {
-            // Validate inputs
             if (String.isBlank(leaveRequestId)) {
                 throw new AuraHandledException('Leave Request ID is required.');
             }
@@ -188,7 +206,6 @@ public with sharing class LeaveController {
                 throw new AuraHandledException('Invalid Status: ' + newStatus + '. Valid statuses are Approved or Rejected.');
             }
 
-            // Validate Status__c picklist
             Schema.DescribeFieldResult fieldResult = Leave_Request__c.Status__c.getDescribe();
             List<Schema.PicklistEntry> picklistValues = fieldResult.getPicklistValues();
             Set<String> validStatuses = new Set<String>();
@@ -201,7 +218,6 @@ public with sharing class LeaveController {
                 throw new AuraHandledException('Invalid Status value for picklist: ' + newStatus);
             }
 
-            // Fetch leave request
             List<Leave_Request__c> leaveRequests = [SELECT Id, Leave_Type__c, Start_Date__c, End_Date__c, 
                                                           Employee__c, Status__c 
                                                    FROM Leave_Request__c 
@@ -211,11 +227,9 @@ public with sharing class LeaveController {
             }
             Leave_Request__c leave = leaveRequests[0];
 
-            // Update leave request
             leave.Status__c = newStatus;
             leave.Approved_By__c = UserInfo.getUserId();
 
-            // If approved, update Leave_Balance__c
             if (newStatus == 'Approved') {
                 String currentYear = String.valueOf(Date.today().year());
                 List<Leave_Balance__c> leaveBalances = [SELECT Id, Pending_Leaves__c 
@@ -240,7 +254,6 @@ public with sharing class LeaveController {
                 }
             }
 
-            // Update leave request
             Database.SaveResult sr = Database.update(leave, false);
             if (!sr.isSuccess()) {
                 String errors = 'DML Errors: ';
