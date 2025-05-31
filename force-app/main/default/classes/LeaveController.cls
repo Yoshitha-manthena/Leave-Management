@@ -66,18 +66,27 @@ public with sharing class LeaveController {
                 throw new AuraHandledException('Employee ID is required.');
             }
 
+            // Validate Employee__c lookup
+            List<User> users = [SELECT Id FROM User WHERE Id = :employeeId LIMIT 1];
+            if (users.isEmpty()) {
+                throw new AuraHandledException('Invalid Employee ID: ' + employeeId);
+            }
+
             // Validate Leave Type against picklist values
-            Set<String> validLeaveTypes = new Set<String>{'Sick Leave', 'Personal Leave', 'Vacation'};
-            if (!validLeaveTypes.contains(leaveType)) {
-                // Log available picklist values for debugging
-                Schema.DescribeFieldResult fieldResult = Leave_Request__c.Leave_Type__c.getDescribe();
-                List<Schema.PicklistEntry> picklistValues = fieldResult.getPicklistValues();
-                List<String> picklistLabels = new List<String>();
-                for (Schema.PicklistEntry entry : picklistValues) {
-                    picklistLabels.add(entry.getValue());
+            Schema.DescribeFieldResult fieldResult = Leave_Request__c.Leave_Type__c.getDescribe();
+            List<Schema.PicklistEntry> picklistValues = fieldResult.getPicklistValues();
+            Set<String> validLeaveTypes = new Set<String>();
+            List<String> allPicklistValues = new List<String>();
+            for (Schema.PicklistEntry entry : picklistValues) {
+                allPicklistValues.add(entry.getValue() + (entry.isActive() ? ' (Active)' : ' (Inactive)'));
+                if (entry.isActive()) {
+                    validLeaveTypes.add(entry.getValue());
                 }
-                System.debug('Valid Leave_Type__c picklist values: ' + picklistLabels);
-                throw new AuraHandledException('Invalid Leave Type: ' + leaveType + '. Valid types are: ' + String.join(picklistLabels, ', '));
+            }
+            System.debug('All Leave_Type__c picklist values: ' + allPicklistValues);
+            System.debug('Valid (active) Leave_Type__c picklist values: ' + validLeaveTypes);
+            if (!validLeaveTypes.contains(leaveType)) {
+                throw new AuraHandledException('Invalid Leave Type: ' + leaveType + '. Valid types are: ' + String.join(new List<String>(validLeaveTypes), ', '));
             }
 
             // Create leave request
@@ -90,7 +99,15 @@ public with sharing class LeaveController {
                 Status__c = 'Pending'
             );
             System.debug('Attempting to insert leave request: ' + leave);
-            insert leave;
+            Database.SaveResult sr = Database.insert(leave, false);
+            if (!sr.isSuccess()) {
+                String errors = 'DML Errors: ';
+                for (Database.Error err : sr.getErrors()) {
+                    errors += err.getStatusCode() + ': ' + err.getMessage() + '; ';
+                }
+                System.debug(LoggingLevel.ERROR, errors);
+                throw new AuraHandledException(errors);
+            }
             System.debug('Leave request created with ID: ' + leave.Id + ', Type: ' + leaveType);
             return leave.Id;
         } catch (DmlException e) {
@@ -124,7 +141,7 @@ public with sharing class LeaveController {
     public static List<Leave_Request__c> getLeaveHistory() {
         try {
             String userId = UserInfo.getUserId();
-            return [SELECT Id, Name, Start_Date__c, End_Date__c, Reason__c, Status__c, Approved_By__r.Name, Leave_Type__c
+            return [SELECT Id, Name, Start_Date__c, End_Date__c, Reason__c, Status__c, Approved_By__c, Leave_Type__c
                     FROM Leave_Request__c
                     WHERE Employee__c = :userId
                     ORDER BY CreatedDate DESC];
@@ -139,6 +156,101 @@ public with sharing class LeaveController {
             return UserInfo.getUserId();
         } catch (Exception e) {
             throw new AuraHandledException('Error fetching current user ID: ' + e.getMessage());
+        }
+    }
+    @AuraEnabled(cacheable=true)
+    public static List<Leave_Request__c> getPendingLeaveRequests() {
+        try {
+            String managerId = UserInfo.getUserId();
+            List<User> subordinates = [SELECT Id FROM User WHERE ManagerId = :managerId];
+            Set<Id> subordinateIds = new Set<Id>();
+            for (User u : subordinates) {
+                subordinateIds.add(u.Id);
+            }
+            return [SELECT Id, Name, Leave_Type__c, Start_Date__c, End_Date__c, Reason__c, 
+            Employee__c, Status__c 
+                    FROM Leave_Request__c 
+                    WHERE Employee__c IN :subordinateIds AND Status__c = 'LeaveRequest'
+                    ORDER BY Start_Date__c];
+        } catch (Exception e) {
+            throw new AuraHandledException('Error fetching pending leave requests: ' + e.getMessage());
+        }
+    }
+
+    @AuraEnabled
+    public static void updateLeaveRequest(String leaveRequestId, String newStatus) {
+        try {
+            // Validate inputs
+            if (String.isBlank(leaveRequestId)) {
+                throw new AuraHandledException('Leave Request ID is required.');
+            }
+            if (!new Set<String>{'Approved', 'Rejected'}.contains(newStatus)) {
+                throw new AuraHandledException('Invalid Status: ' + newStatus + '. Valid statuses are Approved or Rejected.');
+            }
+
+            // Validate Status__c picklist
+            Schema.DescribeFieldResult fieldResult = Leave_Request__c.Status__c.getDescribe();
+            List<Schema.PicklistEntry> picklistValues = fieldResult.getPicklistValues();
+            Set<String> validStatuses = new Set<String>();
+            for (Schema.PicklistEntry entry : picklistValues) {
+                if (entry.isActive()) {
+                    validStatuses.add(entry.getValue());
+                }
+            }
+            if (!validStatuses.contains(newStatus)) {
+                throw new AuraHandledException('Invalid Status value for picklist: ' + newStatus);
+            }
+
+            // Fetch leave request
+            List<Leave_Request__c> leaveRequests = [SELECT Id, Leave_Type__c, Start_Date__c, End_Date__c, 
+                                                          Employee__c, Status__c 
+                                                   FROM Leave_Request__c 
+                                                   WHERE Id = :leaveRequestId LIMIT 1];
+            if (leaveRequests.isEmpty()) {
+                throw new AuraHandledException('Leave Request not found: ' + leaveRequestId);
+            }
+            Leave_Request__c leave = leaveRequests[0];
+
+            // Update leave request
+            leave.Status__c = newStatus;
+            leave.Approved_By__c = UserInfo.getUserId();
+
+            // If approved, update Leave_Balance__c
+            if (newStatus == 'Approved') {
+                String currentYear = String.valueOf(Date.today().year());
+                List<Leave_Balance__c> leaveBalances = [SELECT Id, Pending_Leaves__c 
+                                                       FROM Leave_Balance__c 
+                                                       WHERE Employee__c = :leave.Employee__c AND Year__c = :currentYear
+                                                       LIMIT 1];
+                if (leaveBalances.isEmpty()) {
+                    throw new AuraHandledException('No leave balance found for employee');
+                }
+                Integer leaveDays = leave.Start_Date__c.daysBetween(leave.End_Date__c) + 1;
+                if (leaveBalances[0].Pending_Leaves__c < leaveDays) {
+                    throw new AuraHandledException('Insufficient leave balance: ' + leaveDays + ' days required');
+                }
+                leaveBalances[0].Pending_Leaves__c -= leaveDays;
+                Database.SaveResult sr = Database.update(leaveBalances[0], false);
+                if (!sr.isSuccess()) {
+                    String errors = 'Leave Balance Update Errors: ';
+                    for (Database.Error err : sr.getErrors()) {
+                        errors += err.getStatusCode() + ': ' + err.getMessage() + '; ';
+                    }
+                    throw new AuraHandledException(errors);
+                }
+            }
+
+            // Update leave request
+            Database.SaveResult sr = Database.update(leave, false);
+            if (!sr.isSuccess()) {
+                String errors = 'DML Errors: ';
+                for (Database.Error err : sr.getErrors()) {
+                    errors += err.getStatusCode() + ': ' + err.getMessage() + '; ';
+                }
+                throw new AuraHandledException(errors);
+            }
+        } catch (Exception e) {
+            throw new AuraHandledException('Error updating leave request: ' + e.getMessage());
         }
     }
 }

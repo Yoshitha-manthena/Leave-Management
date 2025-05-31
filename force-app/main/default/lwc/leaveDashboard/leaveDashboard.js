@@ -19,9 +19,9 @@ export default class LeaveDashboard extends LightningElement {
     @track today = new Date().toISOString().split('T')[0];
 
     leaveTypeOptions = [
-        { label: 'Sick Leave', value: 'Sick Leave' },
-        { label: 'Personal Leave', value: 'Personal Leave' },
-        { label: 'Vacation', value: 'Vacation' }
+        { label: 'Sick', value: 'Sick' }, // Replace 'Sick' with actual Leave_Type__c picklist value
+        { label: 'Personal', value: 'Personal' }, // Replace 'Personal' with actual value
+        { label: 'Vacation', value: 'Vacation' } // Matches, as Vacation works
     ];
 
     leaveStatusColumns = [
@@ -36,7 +36,7 @@ export default class LeaveDashboard extends LightningElement {
         { label: 'End Date', fieldName: 'myApp202224__End_Date__c', type: 'date' },
         { label: 'Reason', fieldName: 'myApp202224__Reason__c', type: 'text' },
         { label: 'Status', fieldName: 'myApp202224__Status__c', type: 'text' },
-        { label: 'Approved By', fieldName: 'myApp202224__ApprovedByName', type: 'text' }
+        { label: 'Approved By', fieldName: 'myApp202224__Approved_By__c', type: 'text' }
     ];
 
     connectedCallback() {
@@ -74,7 +74,7 @@ export default class LeaveDashboard extends LightningElement {
                 myApp202224__End_Date__c: record.myApp202224__End_Date__c,
                 myApp202224__Reason__c: record.myApp202224__Reason__c,
                 myApp202224__Status__c: record.myApp202224__Status__c,
-                myApp202224__ApprovedByName: record.myApp202224__Approved_By__c || '',
+                myApp202224__Approved_By__c: record.myApp202224__Approved_By__c || '',
                 myApp202224__Leave_Type__c: record.myApp202224__Leave_Type__c
             }));
             console.log('Leave history data:', JSON.stringify(this.leaveHistoryData));
@@ -88,16 +88,38 @@ export default class LeaveDashboard extends LightningElement {
 
     handleInputChange(event) {
         const field = event.target.name;
+        const value = event.target.value;
+        console.log(`Input change: field=${field}, value=${value}`);
         if (field === 'leaveType') {
-            this.leaveType = event.target.value;
+            this.leaveType = value;
+        } else if (field === 'startDate') {
+            this.startDate = value;
+        } else if (field === 'endDate') {
+            this.endDate = value;
+        } else if (field === 'reason') {
+            this.reason = value;
         }
-        if (field === 'startDate') this.startDate = event.target.value;
-        if (field === 'endDate') this.endDate = event.target.value;
-        if (field === 'reason') this.reason = event.target.value;
+        console.log('Current state:', {
+            leaveType: this.leaveType,
+            startDate: this.startDate,
+            endDate: this.endDate,
+            reason: this.reason
+        });
     }
 
     async handleSubmit() {
+        console.log('handleSubmit called with:', {
+            leaveType: this.leaveType,
+            startDate: this.startDate,
+            endDate: this.endDate,
+            reason: this.reason
+        });
         if (!this.leaveType || !this.startDate || !this.endDate) {
+            console.error('Validation failed:', {
+                leaveType: this.leaveType,
+                startDate: this.startDate,
+                endDate: this.endDate
+            });
             this.showToast('Error', 'Please fill all required fields (Leave Type, Start Date, End Date).', 'error');
             return;
         }
@@ -133,6 +155,7 @@ export default class LeaveDashboard extends LightningElement {
         this.startDate = '';
         this.endDate = '';
         this.reason = '';
+        console.log('Form reset');
     }
 
     showToast(title, message, variant) {
