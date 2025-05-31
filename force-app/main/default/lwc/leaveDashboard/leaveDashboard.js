@@ -12,31 +12,31 @@ export default class LeaveDashboard extends LightningElement {
     @track startDate = '';
     @track endDate = '';
     @track reason = '';
-    @track reasonRequired = false;
     @track leaveStatusData = [];
     @track leaveHistoryData = [];
-    @track pendingLeaves = 2;
-    @track totalLeaves = 24;
+    @track pendingLeaves = 0;
+    @track totalLeaves = 0;
     @track today = new Date().toISOString().split('T')[0];
 
     leaveTypeOptions = [
         { label: 'Sick Leave', value: 'Sick Leave' },
-        { label: 'Vacation', value: 'Vacation' },
-        { label: 'Personal Leave', value: 'Personal Leave' }
+        { label: 'Personal Leave', value: 'Personal Leave' },
+        { label: 'Vacation', value: 'Vacation' }
     ];
 
     leaveStatusColumns = [
-        { label: 'Leave ID', fieldName: 'Name' },
-        { label: 'Status', fieldName: 'Status__c' }
+        { label: 'Leave ID', fieldName: 'Name', type: 'text' },
+        { label: 'Status', fieldName: 'myApp202224__Status__c', type: 'text' },
+        { label: 'Leave Type', fieldName: 'myApp202224__Leave_Type__c', type: 'text' }
     ];
 
     leaveHistoryColumns = [
-        { label: 'Request ID', fieldName: 'Name' },
-        { label: 'Start Date', fieldName: 'Start_Date__c', type: 'date' },
-        { label: 'End Date', fieldName: 'End_Date__c', type: 'date' },
-        { label: 'Reason', fieldName: 'Reason__c' },
-        { label: 'Status', fieldName: 'Status__c' },
-        { label: 'Approved By', fieldName: 'Approved_By__r.Name' }
+        { label: 'Request ID', fieldName: 'Name', type: 'text' },
+        { label: 'Start Date', fieldName: 'myApp202224__Start_Date__c', type: 'date' },
+        { label: 'End Date', fieldName: 'myApp202224__End_Date__c', type: 'date' },
+        { label: 'Reason', fieldName: 'myApp202224__Reason__c', type: 'text' },
+        { label: 'Status', fieldName: 'myApp202224__Status__c', type: 'text' },
+        { label: 'Approved By', fieldName: 'myApp202224__ApprovedByName', type: 'text' }
     ];
 
     connectedCallback() {
@@ -51,17 +51,33 @@ export default class LeaveDashboard extends LightningElement {
                 console.log('No leave balance found, creating default...');
                 balance = await createDefaultLeaveBalance();
             }
-            console.log('Leave balance loaded:', JSON.stringify(balance));
             this.pendingLeaves = balance.Pending_Leaves__c || 0;
             this.totalLeaves = balance.Total_Allocated_Leaves__c || 0;
 
-            console.log('Loading leave status...');
-            this.leaveStatusData = await getLeaveStatus();
-            console.log('Leave status loaded:', JSON.stringify(this.leaveStatusData));
+            const statusData = await getLeaveStatus();
+            this.leaveStatusData = statusData.map(record => ({
+                Id: record.Id,
+                Name: record.Name,
+                myApp202224__Status__c: record.myApp202224__Status__c,
+                myApp202224__Leave_Type__c: record.myApp202224__Leave_Type__c,
+                myApp202224__Start_Date__c: record.myApp202224__Start_Date__c,
+                myApp202224__End_Date__c: record.myApp202224__End_Date__c,
+                myApp202224__Reason__c: record.myApp202224__Reason__c
+            }));
+            console.log('Leave status data:', JSON.stringify(this.leaveStatusData));
 
-            console.log('Loading leave history...');
-            this.leaveHistoryData = await getLeaveHistory();
-            console.log('Leave history loaded:', JSON.stringify(this.leaveHistoryData));
+            const historyData = await getLeaveHistory();
+            this.leaveHistoryData = historyData.map(record => ({
+                Id: record.Id,
+                Name: record.Name,
+                myApp202224__Start_Date__c: record.myApp202224__Start_Date__c,
+                myApp202224__End_Date__c: record.myApp202224__End_Date__c,
+                myApp202224__Reason__c: record.myApp202224__Reason__c,
+                myApp202224__Status__c: record.myApp202224__Status__c,
+                myApp202224__ApprovedByName: record.myApp202224__Approved_By__c || '',
+                myApp202224__Leave_Type__c: record.myApp202224__Leave_Type__c
+            }));
+            console.log('Leave history data:', JSON.stringify(this.leaveHistoryData));
         } catch (error) {
             console.error('Load leave data error:', JSON.stringify(error, null, 2));
             this.showToast('Error', `Failed to load leave data: ${error.body?.message || error.message}`, 'error');
@@ -72,41 +88,36 @@ export default class LeaveDashboard extends LightningElement {
 
     handleInputChange(event) {
         const field = event.target.name;
-        if (field === 'leaveType') this.leaveType = event.target.value;
+        if (field === 'leaveType') {
+            this.leaveType = event.target.value;
+        }
         if (field === 'startDate') this.startDate = event.target.value;
         if (field === 'endDate') this.endDate = event.target.value;
         if (field === 'reason') this.reason = event.target.value;
-
-        if (this.pendingLeaves === 0) {
-            this.reasonRequired = true;
-        } else {
-            this.reasonRequired = false;
-        }
     }
 
     async handleSubmit() {
-        if (!this.leaveType || !this.startDate || !this.endDate || (this.reasonRequired && !this.reason)) {
-            this.showToast('Error', 'Please fill all required fields.', 'error');
+        if (!this.leaveType || !this.startDate || !this.endDate) {
+            this.showToast('Error', 'Please fill all required fields (Leave Type, Start Date, End Date).', 'error');
             return;
         }
-
         try {
-            console.log('Input data:', {
+            console.log('Submitting leave request:', {
                 leaveType: this.leaveType,
                 startDate: this.startDate,
                 endDate: this.endDate,
-                reason: this.reason
+                reason: this.reason || 'None'
             });
             const userId = await getCurrentUserId();
             console.log('User ID:', userId);
-            await createLeaveRequest({
+            const leaveId = await createLeaveRequest({
                 leaveType: this.leaveType,
                 startDate: this.startDate,
                 endDate: this.endDate,
-                reason: this.reason,
+                reason: this.reason || '',
                 employeeId: userId
             });
-            console.log('Leave request submitted successfully');
+            console.log('Leave request created with ID:', leaveId);
             this.showToast('Success', 'Leave request submitted successfully.', 'success');
             this.resetForm();
             await this.loadLeaveData();

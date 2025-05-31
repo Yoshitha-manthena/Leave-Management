@@ -7,11 +7,11 @@ export default class ManagerDashboard extends LightningElement {
     @track leaveRequests = [];
     @track columns = [
         { label: 'Request ID', fieldName: 'Name' },
-        { label: 'Employee', fieldName: 'Employee__r.Name' },
-        { label: 'Leave Type', fieldName: 'Leave_Type__c' },
-        { label: 'Start Date', fieldName: 'Start_Date__c', type: 'date' },
-        { label: 'End Date', fieldName: 'End_Date__c', type: 'date' },
-        { label: 'Reason', fieldName: 'Reason__c' },
+        { label: 'Employee', fieldName: 'myApp202224__Employee__r.Name' },
+        { label: 'Leave Type', fieldName: 'myApp202224__Leave_Type__c' },
+        { label: 'Start Date', fieldName: 'myApp202224__Start_Date__c', type: 'date' },
+        { label: 'End Date', fieldName: 'myApp202224__End_Date__c', type: 'date' },
+        { label: 'Reason', fieldName: 'myApp202224__Reason__c' },
         {
             type: 'action',
             typeAttributes: {
