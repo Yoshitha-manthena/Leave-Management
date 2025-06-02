@@ -51,8 +51,8 @@ export default class LeaveDashboard extends LightningElement {
                 console.log('No leave balance found, creating default...');
                 balance = await createDefaultLeaveBalance();
             }
-            this.pendingLeaves = balance.Pending_Leaves__c || 0;
-            this.totalLeaves = balance.Total_Allocated_Leaves__c || 0;
+            this.pendingLeaves = balance.Pending_Leaves__c || 2;
+            this.totalLeaves = balance.Total_Allocated_Leaves__c || 24;
 
             const statusData = await getLeaveStatus();
             this.leaveStatusData = statusData.map(record => ({
@@ -81,8 +81,8 @@ export default class LeaveDashboard extends LightningElement {
         } catch (error) {
             console.error('Load leave data error:', JSON.stringify(error, null, 2));
             this.showToast('Error', `Failed to load leave data: ${error.body?.message || error.message}`, 'error');
-            this.pendingLeaves = 0;
-            this.totalLeaves = 0;
+            this.pendingLeaves = 2;
+            this.totalLeaves = 24;
         }
     }
 
@@ -112,7 +112,8 @@ export default class LeaveDashboard extends LightningElement {
             leaveType: this.leaveType,
             startDate: this.startDate,
             endDate: this.endDate,
-            reason: this.reason
+            reason: this.reason,
+            
         });
         if (!this.leaveType || !this.startDate || !this.endDate) {
             console.error('Validation failed:', {

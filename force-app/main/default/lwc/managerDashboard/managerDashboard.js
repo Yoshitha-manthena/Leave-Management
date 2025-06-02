@@ -1,110 +1,76 @@
-import { LightningElement, track } from 'lwc';
+import { LightningElement, track, wire } from 'lwc';
 import { ShowToastEvent } from 'lightning/platformShowToastEvent';
 import getPendingLeaveRequests from '@salesforce/apex/LeaveController.getPendingLeaveRequests';
 import updateLeaveRequest from '@salesforce/apex/LeaveController.updateLeaveRequest';
+import { refreshApex } from '@salesforce/apex';
 
 export default class ManagerLeaveApproval extends LightningElement {
-    @track pendingRequests = [];
-    @track selectedRequestId = '';
-    @track newStatus = '';
-    @track isModalOpen = false;
+    @track leaveRequests = [];
     @track isLoading = true;
+    wiredResult;
 
     columns = [
         { label: 'Request ID', fieldName: 'Name', type: 'text' },
         { label: 'Employee', fieldName: 'EmployeeName', type: 'text' },
-        { label: 'Leave Type', fieldName: 'Leave_Type__c', type: 'text' },
-        { label: 'Start Date', fieldName: 'Start_Date__c', type: 'date' },
-        { label: 'End Date', fieldName: 'End_Date__c', type: 'date' },
-        { label: 'Reason', fieldName: 'Reason__c', type: 'text' },
-        { 
-            label: 'Actions', 
-            type: 'button', 
-            typeAttributes: { 
-                label: 'Review', 
-                name: 'review', 
-                variant: 'brand',
-                title: 'Review Request',
-                disabled: false
+        { label: 'Leave Type', fieldName: 'myApp202224__Leave_Type__c', type: 'text' },
+        { label: 'Start Date', fieldName: 'myApp202224__Start_Date__c', type: 'date' },
+        { label: 'End Date', fieldName: 'myApp202224__End_Date__c', type: 'date' },
+        { label: 'Reason', fieldName: 'myApp202224__Reason__c', type: 'text' },
+        {
+            type: 'action',
+            typeAttributes: {
+                rowActions: [
+                    { label: 'Approve', name: 'approve' },
+                    { label: 'Reject', name: 'reject' }
+                ]
             }
         }
     ];
 
-    statusOptions = [
-        { label: 'Approve', value: 'Approved' },
-        { label: 'Reject', value: 'Rejected' }
-    ];
-
-    connectedCallback() {
-        this.loadPendingRequests();
-    }
-
-    async loadPendingRequests() {
-        this.isLoading = true;
-        try {
-            const data = await getPendingLeaveRequests();
-            console.log('Raw data from Apex:', JSON.stringify(data));
-            this.pendingRequests = data.map(record => ({
+    @wire(getPendingLeaveRequests)
+    wiredLeaveRequests(result) {
+        this.wiredResult = result;
+        this.isLoading = false;
+        if (result.data) {
+            console.log('Raw data from Apex:', JSON.stringify(result.data));
+            this.leaveRequests = result.data.map(record => ({
                 Id: record.Id,
                 Name: record.Name,
-                EmployeeName: record.Employee__r?.Name || 'Unknown',
-                Leave_Type__c: record.Leave_Type__c,
-                Start_Date__c: record.Start_Date__c,
-                End_Date__c: record.End_Date__c,
-                Reason__c: record.Reason__c || ''
+                EmployeeName: record.myApp202224__Employee__r?.Name || 'Unknown',
+                myApp202224__Leave_Type__c: record.myApp202224__Leave_Type__c,
+                myApp202224__Start_Date__c: record.myApp202224__Start_Date__c,
+                myApp202224__End_Date__c: record.myApp202224__End_Date__c,
+                myApp202224__Reason__c: record.myApp202224__Reason__c || 'None'
             }));
-            console.log('Mapped pending requests:', JSON.stringify(this.pendingRequests));
-            if (this.pendingRequests.length === 0) {
-                this.showToast('Info', 'No pending leave requests found.', 'info');
-            }
-        } catch (error) {
-            console.error('Error loading requests:', error);
-            this.showToast('Error', `Failed to load pending requests: ${error.body?.message || error.message}`, 'error');
-        } finally {
-            this.isLoading = false;
+            console.log('Mapped leave requests:', JSON.stringify(this.leaveRequests));
+            console.log('Number of requests:', this.leaveRequests.length);
+        } else if (result.error) {
+            console.error('Error fetching requests:', JSON.stringify(result.error));
+            this.showToast('Error', 'Failed to load leave requests: ' + (result.error.body?.message || result.error.message), 'error');
+            this.leaveRequests = [];
         }
     }
 
     handleRowAction(event) {
         const actionName = event.detail.action.name;
         const row = event.detail.row;
-        console.log('Row action:', actionName, 'Row:', JSON.stringify(row));
-        if (actionName === 'review') {
-            this.selectedRequestId = row.Id;
-            this.isModalOpen = true;
-        }
+        console.log('Row action:', actionName, 'for request ID:', row.Id);
+        this.handleLeaveAction(row.Id, actionName === 'approve' ? 'Approved' : 'Rejected');
     }
 
-    handleStatusChange(event) {
-        this.newStatus = event.target.value;
-        console.log('Selected status:', this.newStatus);
-    }
-
-    async handleSubmit() {
-        if (!this.newStatus) {
-            this.showToast('Error', 'Please select a status.', 'error');
-            return;
-        }
+    async handleLeaveAction(leaveRequestId, newStatus) {
+        this.isLoading = true;
         try {
-            console.log('Submitting update:', { leaveRequestId: this.selectedRequestId, newStatus: this.newStatus });
-            await updateLeaveRequest({
-                leaveRequestId: this.selectedRequestId,
-                newStatus: this.newStatus
-            });
-            this.showToast('Success', 'Leave request updated successfully.', 'success');
-            this.closeModal();
-            await this.loadPendingRequests();
+            console.log('Updating leave request:', leaveRequestId, 'to status:', newStatus);
+            await updateLeaveRequest({ leaveRequestId, newStatus });
+            this.showToast('Success', `Leave request ${newStatus.toLowerCase()} successfully.`, 'success');
+            await refreshApex(this.wiredResult);
         } catch (error) {
-            console.error('Update error:', error);
+            console.error('Update error:', JSON.stringify(error));
             this.showToast('Error', `Failed to update leave request: ${error.body?.message || error.message}`, 'error');
+        } finally {
+            this.isLoading = false;
         }
-    }
-
-    closeModal() {
-        this.isModalOpen = false;
-        this.selectedRequestId = '';
-        this.newStatus = '';
-        console.log('Modal closed');
     }
 
     showToast(title, message, variant) {

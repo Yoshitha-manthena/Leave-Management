@@ -1,13 +1,23 @@
 <template>
-    <lightning-card title="Manager Dashboard" icon-name="standard:task">
-        <div class="apple-container">
-            <lightning-datatable
-                key-field="Id"
-                data={leaveRequests}
-                columns={columns}
-                onrowaction={handleRowAction}
-                hide-checkbox-column
-            ></lightning-datatable>
+    <lightning-card title="Manager Leave Approval" icon-name="standard:approval">
+        <div class="slds-p-around_medium">
+            <template if:true={isLoading}>
+                <lightning-spinner alternative-text="Loading..."></lightning-spinner>
+            </template>
+            <template if:false={isLoading}>
+                <template if:true={leaveRequests.length}>
+                    <lightning-datatable
+                        key-field="Id"
+                        data={leaveRequests}
+                        columns={columns}
+                        onrowaction={handleRowAction}
+                        hide-checkbox-column
+                    ></lightning-datatable>
+                </template>
+                <template if:false={leaveRequests.length}>
+                    <p>No leave requests pending.</p>
+                </template>
+            </template>
         </div>
     </lightning-card>
 </template>
